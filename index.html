@@ -45,10 +45,20 @@
 <body class="bg-gray-50 min-h-screen p-4 sm:p-8 font-sans">
 
     <div class="max-w-7xl mx-auto">
+        
         <header class="text-center mb-10">
             <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-800 mb-2"><img src="logo.png" alt="Videostar" style="margin:auto;display:block;width:300px;"></h1>
             <p class="text-gray-500">Inserts rápidos y fáciles</p>
         </header>
+
+        <div id="new-feature-alert" class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-6 rounded-lg shadow-md flex justify-between items-center" role="alert">
+            <p class="font-medium text-sm">
+                🎉 <strong>¡Nuevo!</strong> Ahora podés consultar el progreso de grabación de tu video al exportarlo, gracias a la incorporación de una barra de carga.
+            </p>
+            <button id="close-alert-btn" class="ml-4 text-yellow-700 hover:text-yellow-900 focus:outline-none">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
 
         <main class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             
@@ -142,6 +152,17 @@
                         <button id="export-btn" class="w-full bg-blue-600 hover:bg-red-600 text-white font-bold py-3 px-4 rounded-lg shadow-md transition duration-200 disabled:opacity-50" disabled>
                             <span id="export-text">Exportar video</span>
                         </button>
+                        
+                        <div id="export-progress" class="hidden">
+                            <div class="text-sm font-medium text-gray-700 mb-1 flex justify-between">
+                                <span>Progreso de grabación:</span>
+                                <span id="progress-percent">0%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                <div id="progress-bar" class="bg-blue-600 h-2.5 rounded-full transition-all duration-100" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        
                     </div>
                 </section>
             </div>
@@ -164,15 +185,15 @@
         </main>
         
         <footer class="mt-10 text-center text-sm text-gray-400">
-            <p>Versión 1.5. Esta página es experimental y puede tener errores.</p>
+            <p>Versión 2.2 (16/12/2025). Esta página es experimental y puede tener errores.</p>
         </footer>
     </div>
 
     <script type="module">
         // Variables globales
-        let loadedImages = [];
+        let loadedMedia = []; // Solo contiene imágenes
         let currentImageIndex = 0;
-        let previousImageIndex = 0; // Almacena el índice de la imagen anterior (ya no se usa para transiciones)
+        let previousImageIndex = 0;
         let isPreviewing = false;
         let isRecording = false;
         let animationStartTime = 0;
@@ -180,7 +201,9 @@
         let mediaRecorder = null;
         let recordedChunks = [];
         let targetRecordingDuration = 0; 
-        const TRANSITION_DURATION = 0.5; // Duración fija de 0.5 segundos (se mantiene por si se reutiliza)
+        const TRANSITION_DURATION = 0.5; 
+        let cumulativeDurations = [];
+        let recordingProgressInterval = null; 
         
         // Elementos del DOM
         const dropArea = document.getElementById('drop-area');
@@ -200,6 +223,17 @@
         const effectType = document.getElementById('effect-type');
         const loopCountSelect = document.getElementById('loop-count'); 
         const clearAllBtn = document.getElementById('clear-all-btn'); 
+        
+        // Elementos de progreso
+        const exportProgress = document.getElementById('export-progress');
+        const progressBar = document.getElementById('progress-bar');
+        const progressPercent = document.getElementById('progress-percent');
+        
+        // Elementos y lógica del aviso de novedad
+        const newFeatureAlert = document.getElementById('new-feature-alert');
+        const closeAlertBtn = document.getElementById('close-alert-btn');
+        // Eliminado: const ALERT_DISMISSED_KEY = 'vs_alert_dismissed';
+
 
         // Configuración inicial del Canvas
         const VIDEO_FPS = 30; // 30 cuadros por segundo
@@ -224,43 +258,60 @@
         function hideMessage() {
             messageBox.classList.add('hidden');
         }
+        
+        /** Formatea segundos a M:SS si > 60s, o S.S si < 60s. */
+        function formatDuration(seconds) {
+            if (seconds >= 60) {
+                const minutes = Math.floor(seconds / 60);
+                const remainingSeconds = Math.round(seconds % 60);
+                return `${minutes} minuto${minutes !== 1 ? 's' : ''} y ${remainingSeconds} segundo${remainingSeconds !== 1 ? 's' : ''}`;
+            } else {
+                return `${seconds.toFixed(1)} segundos`;
+            }
+        }
+
 
         /** Actualiza el estado de los botones y el overlay. */
         function updateUIState() {
-            const hasImages = loadedImages.length > 0;
+            const hasMedia = loadedMedia.length > 0; 
             
-            // Lógica de deshabilitación: No se puede previsualizar ni exportar si el otro está activo.
-            previewBtn.disabled = !hasImages || isRecording;
-            exportBtn.disabled = !hasImages || isPreviewing;
-            clearAllBtn.disabled = !hasImages; // Habilitar/Deshabilitar botón de limpiar todo
+            previewBtn.disabled = !hasMedia || isRecording; 
+            exportBtn.disabled = !hasMedia || isPreviewing; 
+            clearAllBtn.disabled = !hasMedia; 
             
-            if (loadedImages.length === 0) {
-                statusOverlay.textContent = 'Cargá tus imágenes y presioná "Generar previsualización"';
+            if (loadedMedia.length === 0) {
+                statusOverlay.textContent = 'Cargá algunas imágenes y presioná "Generar previsualización"';
                 statusOverlay.classList.remove('hidden');
+                exportProgress.classList.add('hidden');
             } else if (isPreviewing) {
                 statusOverlay.classList.add('hidden');
                 previewBtn.textContent = 'Detener previsualización';
                 exportBtn.disabled = true; 
+                exportProgress.classList.add('hidden');
             } else if (isRecording) {
                 statusOverlay.textContent = '🔴 Grabando video...';
                 statusOverlay.classList.remove('hidden');
                 exportBtn.textContent = 'Detener grabación'; 
                 previewBtn.disabled = true; 
+                exportProgress.classList.remove('hidden'); // Mostrar barra de progreso
             } else {
                 statusOverlay.classList.add('hidden');
                 previewBtn.textContent = 'Generar previsualización';
                 exportBtn.textContent = 'Exportar video';
+                exportProgress.classList.add('hidden'); // Ocultar barra de progreso
             }
         }
 
         /** Dibuja la lista de imágenes cargadas en el DOM. */
         function renderImageList() {
-            imageList.innerHTML = `<p class="text-sm text-gray-500 font-medium">Imágenes cargadas (${loadedImages.length}):</p>`;
-            loadedImages.forEach((img, index) => {
+            imageList.innerHTML = `<p class="text-sm text-gray-500 font-medium">Imágenes cargadas (${loadedMedia.length}):</p>`;
+            loadedMedia.forEach((media, index) => {
+                const name = media.element.src.split('/').pop() || 'Imagen cargada';
+
                 const item = document.createElement('div');
                 item.className = 'flex justify-between items-center p-2 bg-gray-50 rounded-lg text-sm';
                 item.innerHTML = `
-                    <span class="truncate pr-2 text-gray-700">${index + 1}. ${img.src.split('/').pop() || 'Imagen cargada'}</span>
+                    <span class="truncate pr-2 text-gray-700">${index + 1}. ${name} (${media.duration.toFixed(1)}s)</span>
                     <button data-index="${index}" class="remove-img-btn text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-50">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                             <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
@@ -273,7 +324,7 @@
             document.querySelectorAll('.remove-img-btn').forEach(button => {
                 button.addEventListener('click', (e) => {
                     const index = parseInt(e.currentTarget.dataset.index);
-                    loadedImages.splice(index, 1);
+                    loadedMedia.splice(index, 1);
                     renderImageList();
                     updateUIState();
                 });
@@ -281,23 +332,25 @@
             updateCanvasDimensions(); 
         }
 
-        // Limpia todas las imágenes cargadas
+        // Limpia todos los medios cargados
         function clearAllImages() {
-            loadedImages = [];
+            loadedMedia = [];
             renderImageList();
             updateUIState();
             drawInitialPlaceholder(); // Redibuja el placeholder
             stopPreview(); // Detiene cualquier previsualización activa
         }
 
-        // --- Lógica de Carga de Imágenes ---
+        // --- Lógica de Carga de Medios ---
 
         /** Carga una imagen dada su URL. */
         function loadImage(url) {
             return new Promise((resolve, reject) => {
                 const img = new Image();
                 img.crossOrigin = "anonymous"; 
-                img.onload = () => resolve(img);
+                
+                // La duración siempre se toma del slider para las imágenes
+                img.onload = () => resolve({ element: img, type: 'image', duration: parseFloat(durationRange.value) });
                 img.onerror = () => reject(new Error(`Error al cargar la imagen desde URL: ${url}`));
                 img.src = url;
             });
@@ -309,11 +362,12 @@
             if (files.length === 0) return;
 
             for (const file of files) {
+                // Solo procesar imágenes
                 if (file.type.startsWith('image/')) {
                     const url = URL.createObjectURL(file);
                     try {
-                        const img = await loadImage(url);
-                        loadedImages.push(img);
+                        const media = await loadImage(url);
+                        loadedMedia.push(media);
                         URL.revokeObjectURL(url); 
                     } catch (error) {
                         showMessage(`Error al cargar el archivo ${file.name}.`, 'error');
@@ -325,7 +379,7 @@
             updateUIState();
         }
 
-        /** Maneja la carga de URLs. */
+        /** Maneja la carga de URLs (solo imágenes). */
         loadUrlBtn.addEventListener('click', async () => {
             const urls = urlInput.value.split('\n').map(url => url.trim()).filter(url => url);
             urlInput.value = '';
@@ -333,8 +387,8 @@
 
             for (const url of urls) {
                 try {
-                    const img = await loadImage(url);
-                    loadedImages.push(img);
+                    const media = await loadImage(url);
+                    loadedMedia.push(media);
                 } catch (error) {
                     showMessage(`No se pudo cargar la imagen desde: ${url}. Asegúrate de que la URL sea pública y permita CORS.`, 'error');
                     console.error(error);
@@ -396,16 +450,38 @@
             canvas.style.width = '100%';
             canvas.style.height = '100%';
         }
+        
+        /** * Calcula las duraciones acumuladas y la duración total del ciclo. */
+        function calculateMediaTimings() {
+            cumulativeDurations = [];
+            let totalDuration = 0;
+            const slideDuration = parseFloat(durationRange.value);
 
-        /** * Dibuja la imagen principal (ajuste "Contain") con zoom.
-         * @param {Image} img - El objeto Image a dibujar.
+            loadedMedia.forEach(media => {
+                // Todos son imágenes y usan la duración del slider
+                media.duration = slideDuration; 
+                
+                totalDuration += slideDuration;
+                cumulativeDurations.push(totalDuration);
+            });
+            return totalDuration;
+        }
+
+        /** * Dibuja el contenido principal (ajuste "Contain") con zoom.
+         * @param {Image} mediaElement - El objeto Image a dibujar.
+         * @param {number} canvasW - Ancho del canvas.
+         * @param {number} canvasH - Alto del canvas.
          * @param {number} currentZoomScale - El factor de zoom a aplicar.
          */
-        function drawContentImage(img, canvasW, canvasH, currentZoomScale = 1.0) {
-            // Factor de escala base (Contain: ajusta la imagen para que quepa completamente)
-            const scale = Math.min(canvasW / img.width, canvasH / img.height);
-            const baseW = img.width * scale;
-            const baseH = img.height * scale;
+        function drawContentMedia(mediaElement, canvasW, canvasH, currentZoomScale = 1.0) {
+            // Obtener el tamaño de la imagen
+            const mediaW = mediaElement.width;
+            const mediaH = mediaElement.height;
+
+            // Factor de escala base (Contain)
+            const scale = Math.min(canvasW / mediaW, canvasH / mediaH);
+            const baseW = mediaW * scale;
+            const baseH = mediaH * scale;
 
             // Aplicar la escala de zoom
             const drawW = baseW * currentZoomScale;
@@ -415,10 +491,7 @@
             const drawX = (canvasW - drawW) / 2;
             const drawY = (canvasH - drawH) / 2;
             
-            // NOTA DE CORRECCIÓN: Se restauró el movimiento fluido de sub-píxeles.
-            // El fondo ampliado al 110% debe cubrir cualquier posible margen expuesto.
-
-            ctx.drawImage(img, drawX, drawY, drawW, drawH);
+            ctx.drawImage(mediaElement, drawX, drawY, drawW, drawH);
         }
         
         /** * Calcula el factor de zoom para un momento dado de una diapositiva.
@@ -428,67 +501,64 @@
          * @returns {number} El factor de escala (e.g., 1.0 a 1.1).
          */
         function calculateZoomScale(time, duration, zoomPercent) {
-            if (effectType.value !== 'zoom') return 1.0;
+            if (effectType.value !== 'zoom') return 1.0; 
             const t = Math.min(time / duration, 1.0);
             return 1.0 + (zoomPercent * t);
         }
 
         /** Dibuja la imagen actual con el fondo difuminado y aplica el efecto de zoom.
          * @param {number} slideTime - Tiempo transcurrido desde el inicio de la diapositiva en segundos (0 to duration).
+         * @param {number} slideDuration - Duración total de la diapositiva.
          * @param {boolean} forceStatic - Si es true, ignora la animación.
          */
-        function drawImage(slideTime, forceStatic = false) {
-            if (loadedImages.length === 0) return;
-            const img = loadedImages[currentImageIndex];
+        function drawImage(slideTime, slideDuration, forceStatic = false) {
+            if (loadedMedia.length === 0) return;
+            const currentMedia = loadedMedia[currentImageIndex];
+            const mediaElement = currentMedia.element; 
+            
             const canvasW = canvas.width;
             const canvasH = canvas.height;
-            const duration = parseFloat(durationRange.value);
             const zoomPercent = parseFloat(zoomRange.value) / 100;
-            const effect = effectType.value;
             
             // 1. Limpiar el canvas
             ctx.clearRect(0, 0, canvasW, canvasH);
             
-            // 2. Dibujar Fondo Difuminado (Gaussian Blur) con la imagen actual
-            const imgRatio = img.width / img.height;
+            // 2. Dibujar Fondo Difuminado (Gaussian Blur)
+            const mediaW = mediaElement.width;
+            const mediaH = mediaElement.height;
+
+            const mediaRatio = mediaW / mediaH;
             const canvasRatio = canvasW / canvasH;
             
             let bgW, bgH, bgX, bgY;
             
-            // Lógica de "Cover" para el fondo, escalado en un 1.1 (10% más) para evitar márgenes negros
             const scaleFactor = 1.1; 
             
-            // La lógica de cover garantiza que el fondo siempre cubra el canvas.
-            if (imgRatio < canvasRatio) { 
-                // Imagen más alta que el canvas (vertical). Escalar por ancho del canvas.
+            if (mediaRatio < canvasRatio) { 
                 bgW = canvasW * scaleFactor;
-                bgH = bgW / imgRatio;
+                bgH = bgW / mediaRatio;
             } else { 
-                // Imagen más ancha que el canvas (horizontal). Escalar por alto del canvas.
                 bgH = canvasH * scaleFactor;
-                bgW = imgRatio * bgH;
+                bgW = mediaRatio * bgH;
             }
             
-            // Centrar el fondo escalado
             bgX = (canvasW - bgW) / 2;
             bgY = (canvasH - bgH) / 2;
 
             ctx.filter = 'blur(20px)';
             ctx.globalAlpha = 0.8; 
-            ctx.drawImage(img, bgX, bgY, bgW, bgH);
+            ctx.drawImage(mediaElement, bgX, bgY, bgW, bgH);
             ctx.filter = 'none';
             ctx.globalAlpha = 1.0;
 
-            // 3. Dibujar la Imagen Principal (Efecto "Contain" / Mostrar toda la imagen)
+            // 3. Dibujar el Contenido Principal
             
-            // Calcular escala de zoom
             let currentZoomScale = 1.0;
-            if (effect === 'zoom' && !forceStatic) {
-                currentZoomScale = calculateZoomScale(slideTime, duration, zoomPercent);
+            if (!forceStatic) {
+                currentZoomScale = calculateZoomScale(slideTime, slideDuration, zoomPercent); 
             }
             
-            // Dibujar imagen con zoom (restaurando la fluidez)
-            drawContentImage(img, canvasW, canvasH, currentZoomScale);
+            drawContentMedia(mediaElement, canvasW, canvasH, currentZoomScale);
         }
 
         // --- Lógica de Animación y Control ---
@@ -499,38 +569,45 @@
                 animationStartTime = timestamp;
             }
 
-            // Tiempo transcurrido en el bucle (total) en segundos
             const elapsedLoopTime = (timestamp - animationStartTime) / 1000;
-            const duration = parseFloat(durationRange.value);
+            const numMedia = loadedMedia.length; 
+            if (numMedia === 0) return;
+
+            const singleCycleDuration = calculateMediaTimings(); 
             
-            const numImages = loadedImages.length;
-            if (numImages === 0) return;
+            if (singleCycleDuration === 0) return;
 
-            // Longitud total del video de un solo ciclo
-            const singleCycleDuration = numImages * duration;
-
-            // Tiempo total transcurrido dentro de un ciclo completo (maneja loops)
-            const timeInCycle = elapsedLoopTime % singleCycleDuration;
-
-            // Índice de la imagen que debería estar visible en este punto del tiempo
-            const indexInTime = Math.floor(timeInCycle / duration);
-
-            // Gestión del estado de transición (Corte Seco)
-            if (indexInTime !== currentImageIndex) {
-                currentImageIndex = indexInTime; 
-            }
+            const loopCount = isRecording ? parseInt(loopCountSelect.value) : Infinity;
             
-            // Tiempo dentro de la diapositiva actual (0 a duration)
-            const slideTime = timeInCycle % duration; 
-
-            // Dibuja el frame actual
-            drawImage(slideTime);
-
-            // Detener grabación automáticamente si se alcanza la duración objetivo
             if (isRecording && elapsedLoopTime >= targetRecordingDuration) {
                 stopRecording();
                 return;
             }
+            
+            const timeInCycle = elapsedLoopTime % singleCycleDuration;
+
+            let newIndex = 0;
+            let slideStartTime = 0; 
+
+            for (let i = 0; i < numMedia; i++) {
+                if (timeInCycle < cumulativeDurations[i]) {
+                    newIndex = i;
+                    slideStartTime = i === 0 ? 0 : cumulativeDurations[i - 1];
+                    break;
+                }
+            }
+            
+            // Si el medio cambió (corte seco)
+            if (newIndex !== currentImageIndex) {
+                currentImageIndex = newIndex;
+            }
+            
+            const currentMedia = loadedMedia[currentImageIndex];
+            
+            const slideTime = timeInCycle - slideStartTime; 
+
+            // Dibuja el frame actual
+            drawImage(slideTime, currentMedia.duration);
 
             if (isPreviewing || isRecording) {
                 animationFrameId = requestAnimationFrame(animationLoop);
@@ -539,7 +616,7 @@
         
         /** Inicia la previsualización. */
         function startPreview() {
-            if (loadedImages.length === 0) {
+            if (loadedMedia.length === 0) {
                 showMessage("Por favor, carga al menos una imagen.", 'error');
                 return;
             }
@@ -549,8 +626,9 @@
             }
             
             updateCanvasDimensions();
+            calculateMediaTimings(); 
+            
             currentImageIndex = 0;
-            previousImageIndex = 0;
             animationStartTime = 0; 
             isPreviewing = true;
             updateUIState();
@@ -565,14 +643,31 @@
             }
             isPreviewing = false;
             animationStartTime = 0;
+            
             // Dibuja la primera imagen estáticamente
-            drawImage(0, true); 
+            if (loadedMedia.length > 0) {
+                drawImage(0, loadedMedia[currentImageIndex].duration, true); 
+            }
+            
             updateUIState();
         }
 
+        /** Actualiza la barra de progreso de exportación. */
+        function updateProgress() {
+            if (!isRecording || !targetRecordingDuration || !animationStartTime) return;
+
+            const elapsedLoopTime = (performance.now() - animationStartTime) / 1000;
+            let percent = Math.min((elapsedLoopTime / targetRecordingDuration) * 100, 100);
+            
+            const roundedPercent = Math.floor(percent);
+            progressBar.style.width = `${roundedPercent}%`;
+            progressPercent.textContent = `${roundedPercent}%`;
+        }
+
+
         /** Inicia la grabación del video. */
         function startRecording() {
-            if (loadedImages.length === 0) {
+            if (loadedMedia.length === 0) {
                 showMessage("Por favor, carga al menos una imagen para grabar.", 'error');
                 return;
             }
@@ -583,33 +678,38 @@
             
             // 1. Configuración de Duración
             updateCanvasDimensions();
+            calculateMediaTimings();
+            
             currentImageIndex = 0;
-            previousImageIndex = 0;
             animationStartTime = 0;
             
             const loopCount = parseInt(loopCountSelect.value);
-            const slideDuration = parseFloat(durationRange.value);
-            const singleCycleDuration = loadedImages.length * slideDuration;
+            const singleCycleDuration = cumulativeDurations[cumulativeDurations.length - 1];
             targetRecordingDuration = singleCycleDuration * loopCount;
+            
+            const formattedDuration = formatDuration(targetRecordingDuration);
 
             isRecording = true;
             recordedChunks = [];
             updateUIState();
             hideMessage();
-            // AÑADIDO: Advertencia de permanencia en la pestaña.
-            showMessage(`🔴 Grabando ${loopCount} loop(s). Duración total aproximada: ${targetRecordingDuration.toFixed(1)} segundos.
+            
+            showMessage(`🔴 Grabando ${loopCount} loop(s). Duración total aproximada: ${formattedDuration}.
             <strong>Mantener esta pestaña abierta y visible durante la grabación, de lo contrario la exportación fallará o será muy lenta.</strong>`, 'warning');
+            
+            // Inicializar barra de progreso
+            progressBar.style.width = '0%';
+            progressPercent.textContent = '0%';
+            recordingProgressInterval = setInterval(updateProgress, 100); // Iniciar actualización de progreso CADA 100ms
 
             // 2. Obtener el stream del canvas
             const stream = canvas.captureStream(VIDEO_FPS); 
             
-            // FIX para evitar segundos en negro: dibujar el primer frame antes de inicializar MediaRecorder.
-            // Esto asegura que el stream comience con la imagen correcta.
-            drawImage(0, true);
+            // Dibujar el primer frame antes de inicializar MediaRecorder
+            drawImage(0, loadedMedia[0].duration, true);
 
             // 3. Inicializar MediaRecorder
             try {
-                // Intentar usar VP9 para mejor calidad (si no, retrocede a VP8 estándar)
                 const options = { mimeType: 'video/webm; codecs=vp9' };
                 mediaRecorder = new MediaRecorder(stream, options);
             } catch (e) {
@@ -626,8 +726,16 @@
 
             // 5. Manejar el evento de parada (finalización de la grabación)
             mediaRecorder.onstop = () => {
+                // Detener el intervalo de progreso antes de la finalización
+                clearInterval(recordingProgressInterval);
                 isRecording = false;
+                
                 updateUIState();
+                
+                // Mostrar progreso al 100% y mensaje de "Procesando..."
+                progressBar.style.width = '100%';
+                progressPercent.textContent = '100%';
+                showMessage("Procesando y descargando el archivo...", 'success');
                 
                 const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType });
                 const url = URL.createObjectURL(blob);
@@ -636,7 +744,6 @@
                 a.style.display = 'none';
                 a.href = url;
                 const now = new Date().toISOString().replace(/[:.]/g, '-');
-                // Nombre de archivo actualizado
                 a.download = `videostar_insert_${now}.webm`;
                 
                 document.body.appendChild(a);
@@ -647,7 +754,6 @@
             };
 
             // 6. Iniciar la grabación
-            // Iniciar MediaRecorder con un pequeño intervalo para forzar la recolección de datos
             mediaRecorder.start(1000 / VIDEO_FPS); 
             
             // 7. Iniciar el bucle de animación para alimentar el canvas
@@ -660,6 +766,17 @@
                 cancelAnimationFrame(animationFrameId);
                 mediaRecorder.stop();
             }
+            clearInterval(recordingProgressInterval);
+        }
+
+        // Dibuja una imagen de inicio para que el canvas no esté vacío.
+        function drawInitialPlaceholder() {
+            ctx.fillStyle = '#1f2937'; // gray-800
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#9ca3af'; // gray-400
+            ctx.font = '20px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Videostar - Generador de Slideshow', canvas.width / 2, canvas.height / 2);
         }
 
         // --- Event Listeners Globales ---
@@ -677,41 +794,38 @@
         });
 
         // Botón de Limpiar Todo
-        clearAllBtn.addEventListener('click', clearAllImages); // Listener para el botón
+        clearAllBtn.addEventListener('click', clearAllImages); 
 
-        // Controles de configuración
-        document.querySelectorAll('input[name="aspect-ratio"]').forEach(input => {
-            input.addEventListener('change', updateCanvasDimensions);
-        });
-
+        // Actualizar la duración de las imágenes cuando se cambia el slider
         durationRange.addEventListener('input', () => {
             document.getElementById('duration-value').textContent = durationRange.value;
+             // Forzar la actualización de la duración de las imágenes en el array de medios
+            loadedMedia.forEach(m => m.duration = parseFloat(durationRange.value));
+            renderImageList();
         });
 
         zoomRange.addEventListener('input', () => {
             document.getElementById('zoom-value').textContent = zoomRange.value;
         });
         
-        // Inicialización al cargar la página
-        window.onload = () => {
-            updateCanvasDimensions();
-            updateUIState();
-        };
+        // Controles de configuración
+        document.querySelectorAll('input[name="aspect-ratio"]').forEach(input => {
+            input.addEventListener('change', updateCanvasDimensions);
+        });
 
-        // Dibuja una imagen de inicio para que el canvas no esté vacío.
-        function drawInitialPlaceholder() {
-            ctx.fillStyle = '#1f2937'; // gray-800
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = '#9ca3af'; // gray-400
-            ctx.font = '20px Inter, sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText('Videostar - Generador de Slideshow', canvas.width / 2, canvas.height / 2);
-        }
-        
-        // Inicializar el placeholder al cargar
+        // Lógica del aviso de novedad (solo oculta, sin persistencia)
+        closeAlertBtn.addEventListener('click', () => {
+            newFeatureAlert.classList.add('hidden');
+        });
+
+        // Inicializar el placeholder y comprobar el aviso al cargar
         window.addEventListener('load', () => {
             updateCanvasDimensions();
             drawInitialPlaceholder();
+            updateUIState();
+            
+            // El aviso siempre se muestra al cargar, ya que no hay persistencia.
+            newFeatureAlert.classList.remove('hidden');
         });
 
     </script>
