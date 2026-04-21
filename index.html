@@ -3,837 +3,224 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Videostar - Creador de inserts</title>
-    <link rel="icon" href="favicon.png" />
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Videostar PC</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;900&family=Barlow:wght@300;400;500&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
     <style>
-        /* Estilo para manejar el arrastre de archivos */
-        #drop-area {
-            transition: all 0.3s ease;
-            border: 2px dashed #9ca3af; /* gray-400 */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --blue:  #1a4fff;
+            --blue2: #3a6fff;
+            --blue3: #5588ff;
         }
-        #drop-area.dragover {
-            border-color: #3b82f6; /* blue-500 */
-            background-color: #eff6ff; /* blue-50 */
-        }
-        /* Clase para el fondo difuminado en el lienzo */
-        .canvas-container {
-            position: relative;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            border-radius: 0.75rem;
+
+        html, body { height: 100%; }
+
+        body {
+            min-height: 100vh;
+            font-family: 'Barlow', sans-serif;
+            background: #000b1a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             overflow: hidden;
-            background-color: #000;
+            position: relative;
         }
-        /* Estilos específicos para el lienzo de video */
-        #video-canvas {
-            display: block;
-            background-color: #000;
+
+        .blob {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(120px);
+            pointer-events: none;
+            z-index: 0;
+        }
+        .blob-1 {
+            width: 600px; height: 600px;
+            background: radial-gradient(circle, rgba(26,79,255,0.35) 0%, transparent 70%);
+            top: -100px; left: -100px;
+            animation: drift1 12s ease-in-out infinite;
+        }
+        .blob-2 {
+            width: 500px; height: 500px;
+            background: radial-gradient(circle, rgba(58,111,255,0.2) 0%, transparent 70%);
+            bottom: -80px; right: -80px;
+            animation: drift2 15s ease-in-out infinite;
+        }
+        .blob-3 {
+            width: 300px; height: 300px;
+            background: radial-gradient(circle, rgba(85,136,255,0.15) 0%, transparent 70%);
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            animation: drift3 8s ease-in-out infinite;
+        }
+
+        @keyframes drift1 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(40px,30px)} }
+        @keyframes drift2 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-30px,-40px)} }
+        @keyframes drift3 {
+            0%,100% { transform:translate(-50%,-50%) scale(1) }
+            50%      { transform:translate(-50%,-50%) scale(1.3) }
+        }
+
+        .glass-card {
+            position: relative;
+            z-index: 10;
+            width: min(500px, 92vw);
+            padding: 56px 52px 52px;
+            border-radius: 28px;
+            background: rgba(255,255,255,0.04);
+            backdrop-filter: blur(32px) saturate(180%);
+            -webkit-backdrop-filter: blur(32px) saturate(180%);
+            border: 1px solid rgba(255,255,255,0.10);
+            box-shadow:
+                0 0 0 0.5px rgba(26,79,255,0.25),
+                0 32px 80px rgba(0,0,0,0.6),
+                inset 0 1px 0 rgba(255,255,255,0.12);
+            text-align: center;
+            animation: appear .7s cubic-bezier(.22,1,.36,1) both;
+            overflow: hidden;
+        }
+
+        @keyframes appear {
+            from { opacity:0; transform:translateY(28px) scale(.97); }
+            to   { opacity:1; transform:translateY(0) scale(1); }
+        }
+
+        .glass-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 28px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.07) 0%, transparent 50%);
+            pointer-events: none;
+        }
+
+        @keyframes scanline { 0%{top:-2px} 100%{top:100%} }
+        .glass-card::after {
+            content: '';
+            position: absolute;
+            left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(100,150,255,0.25), transparent);
+            animation: scanline 7s linear infinite;
+            pointer-events: none;
+        }
+
+        .logo {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-weight: 900;
+            font-size: 64px;
+            line-height: 1;
+            letter-spacing: -.01em;
+            margin-bottom: 4px;
+        }
+        .logo .v    { color: var(--blue2); }
+        .logo .s    { color: var(--blue3); }
+        .logo .star { color: var(--blue3); font-size: 48px; vertical-align: middle; margin-left: 2px; }
+
+        .logo-sub {
+            font-family: 'DM Mono', monospace;
+            font-size: 11px;
+            letter-spacing: .22em;
+            text-transform: uppercase;
+            color: rgba(150,180,255,0.45);
+            margin-bottom: 36px;
+        }
+
+        .divider {
+            width: 40px; height: 2px;
+            background: linear-gradient(90deg, var(--blue), var(--blue3));
+            border-radius: 999px;
+            margin: 0 auto 32px;
+            opacity: .6;
+        }
+
+        .tagline {
+            font-size: 17px;
+            font-weight: 300;
+            color: rgba(200,220,255,0.65);
+            line-height: 1.6;
+            margin-bottom: 44px;
+        }
+        .tagline strong { color: rgba(220,235,255,0.95); font-weight: 500; }
+
+        .btn-dl {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            padding: 17px 28px;
+            border-radius: 14px;
+            background: var(--blue);
+            color: #fff;
+            font-family: 'Barlow Condensed', sans-serif;
+            font-weight: 700;
+            font-size: 22px;
+            letter-spacing: .05em;
+            text-transform: uppercase;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: transform .15s, box-shadow .15s;
+            box-shadow: 0 4px 24px rgba(26,79,255,0.45), inset 0 1px 0 rgba(255,255,255,0.18);
+        }
+        .btn-dl::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.14) 0%, transparent 55%);
+            pointer-events: none;
+        }
+        .btn-dl:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 36px rgba(26,79,255,0.6), inset 0 1px 0 rgba(255,255,255,0.2);
+        }
+        .btn-dl:active { transform: translateY(0); }
+
+        .meta {
+            margin-top: 20px;
+            font-family: 'DM Mono', monospace;
+            font-size: 11px;
+            color: rgba(150,180,255,0.3);
+            letter-spacing: .08em;
         }
     </style>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                    },
-                }
-            }
-        }
-    </script>
 </head>
-<body class="bg-gray-50 min-h-screen p-4 sm:p-8 font-sans">
+<body>
 
-    <div class="max-w-7xl mx-auto">
-        
-        <!--<header class="text-center mb-10">
-            <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-800 mb-2"><img src="logo_xmas.png" alt="Videostar" style="margin:auto;display:block;width:350px;"></h1>
-            <p class="text-gray-500">¡Felices fiestas! ✨🎄</p>
-	</header>-->
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
 
-	<header class="text-center mb-10">
-            <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-800 mb-2"><img src="logo_iran.png" alt="Videostar" style="margin:auto;display:block;width:300px;"></h1>
-            <p class="text-gray-500">Inserts rápidos y fáciles</p>
-	</header>
+    <div class="glass-card">
 
-        <div id="new-feature-alert" class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-6 rounded-lg shadow-md flex justify-between items-center" role="alert">
-            <p class="font-medium text-sm">
-                🎉 <strong>¡Nuevo!</strong> Conocé <strong><a href="https://cropstar39.netlify.app/" target="_blank" style="text-decoration:underline;color:blue;">CROPSTAR</a></strong>, la herramienta para recortar imágenes y subirlas a la web de manera fácil y rápida.
-            </p>
-            <button id="close-alert-btn" class="ml-4 text-yellow-700 hover:text-yellow-900 focus:outline-none">
-                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-            </button>
-	</div>
+        <div class="logo">
+            <img src="logo-white.png" style="width:90%">
+        </div>
+        <div class="logo-sub">Inserts rápidos y fáciles</div>
 
-        <main class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
-            <div class="lg:col-span-1 space-y-8">
-                
-                <section class="bg-white p-6 rounded-xl shadow-lg border border-gray-100">
-                    <h2 class="text-xl font-semibold text-gray-700 mb-4">1️⃣ Cargar imágenes</h2>
+        <div class="divider"></div>
 
-                    <div id="drop-area" class="p-6 text-center rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition duration-150 ease-in-out">
-                        <p class="text-gray-500 mb-2">Arrastrá y soltá</p>
-                        <p class="text-sm font-medium text-gray-400 mb-3">o</p>
-                        <button onclick="document.getElementById('file-input').click()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-200">
-                            Seleccionar archivos
-                        </button>
-                        <input type="file" id="file-input" accept="image/*" multiple class="hidden">
-                    </div>
+        <p class="tagline">
+            Creá inserts de video con imágenes y exportalos<br>
+            directo a <strong>MP4</strong> desde tu computadora.
+        </p>
 
-                    <div class="mt-4">
-                        <label for="url-input" class="block text-sm font-medium text-gray-700 mb-1">Añadir por URL (una por línea):</label>
-                        <textarea id="url-input" rows="3" class="w-full border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500"></textarea>
-                        <button id="load-url-btn" class="mt-2 w-full bg-blue-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-lg transition duration-200">
-                            Cargar URLs
-                        </button>
-                    </div>
+        <a href="https://drive.google.com/file/d/12CXszzqsk1gXaIYbCsk4anqVxDTIHyPq/view?usp=drive_link" class="btn-dl">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Descargar gratis
+        </a>
 
-                    <div id="image-list" class="mt-6 space-y-2">
-                        <p class="text-sm text-gray-500 font-medium">Imágenes cargadas (0):</p>
-                    </div>
-                    
-                    <button id="clear-all-btn" class="mt-4 w-full bg-red-400 hover:bg-red-500 text-white font-bold py-2 rounded-lg shadow-md transition duration-200 disabled:opacity-50" disabled>
-                        Limpiar todas las imágenes
-                    </button>
-                </section>
+        <p class="meta">desde Google Drive</p>
 
-                <section class="bg-white p-6 rounded-xl shadow-lg border border-gray-100">
-                    <h2 class="text-xl font-semibold text-gray-700 mb-4">2️⃣ Configuración</h2>
-
-                    <div class="mb-5">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Formato:</label>
-                        <div class="flex space-x-4">
-                            <label class="inline-flex items-center">
-                                <input type="radio" name="aspect-ratio" value="16:9" checked class="form-radio h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500">
-                                <span class="ml-2 text-gray-700">Horizontal (16:9)</span>
-                            </label>
-                            <label class="inline-flex items-center">
-                                <input type="radio" name="aspect-ratio" value="9:16" class="form-radio h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500">
-                                <span class="ml-2 text-gray-700">Vertical (9:16)</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <div class="mb-5">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Efecto de animación:</label>
-                        <select id="effect-type" class="w-full border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                            <option value="zoom">Zoom lento (Ken Burns)</option>
-                            <option value="none">Sin animación</option>
-                        </select>
-                    </div>
-                    
-                    <div id="zoom-settings" class="space-y-4">
-                        <div class="mb-4">
-                            <label for="slide-duration" class="block text-sm font-medium text-gray-700 mb-2">Duración por diapositiva (segundos): <span id="duration-value" class="font-bold text-blue-600">5.0</span>s</label>
-                            <input type="range" id="slide-duration" min="1.0" max="10.0" step="0.5" value="5.0" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
-                        </div>
-                        <div class="mb-4">
-                            <label for="zoom-speed" class="block text-sm font-medium text-gray-700 mb-2">Velocidad del zoom (% de inicio a fin): <span id="zoom-value" class="font-bold text-blue-600">10</span>%</label>
-                            <input type="range" id="zoom-speed" min="1" max="50" step="1" value="10" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
-                            <p class="text-xs text-gray-500 mt-1">Define el porcentaje de cambio de escala durante la duración de la diapositiva.</p>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-5">
-                        <label for="loop-count" class="block text-sm font-medium text-gray-700 mb-2">Número de repeticiones (loops):</label>
-                        <select id="loop-count" class="w-full border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                            <option value="1">1 loop (sin repetir)</option>
-                            <option value="2">2 loops</option>
-                            <option value="3">3 loops</option>
-                            <option value="4">4 loops</option>
-                            <option value="5">5 loops</option>
-                        </select>
-                    </div>
-
-                </section>
-                
-                <section class="bg-white p-6 rounded-xl shadow-lg border border-gray-100">
-                    <h2 class="text-xl font-semibold text-gray-700 mb-4">3️⃣ Generar y exportar</h2>
-                    <div class="space-y-4">
-                        <button id="preview-btn" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg shadow-md transition duration-200 disabled:opacity-50" disabled>
-                            <span id="preview-text">Generar previsualización</span>
-                        </button>
-                        <button id="export-btn" class="w-full bg-blue-600 hover:bg-red-600 text-white font-bold py-3 px-4 rounded-lg shadow-md transition duration-200 disabled:opacity-50" disabled>
-                            <span id="export-text">Exportar video</span>
-                        </button>
-                        
-                        <div id="export-progress" class="hidden">
-                            <div class="text-sm font-medium text-gray-700 mb-1 flex justify-between">
-                                <span>Progreso de grabación:</span>
-                                <span id="progress-percent">0%</span>
-                            </div>
-                            <div class="w-full bg-gray-200 rounded-full h-2.5">
-                                <div id="progress-bar" class="bg-blue-600 h-2.5 rounded-full transition-all duration-100" style="width: 0%"></div>
-                            </div>
-                        </div>
-                        
-                    </div>
-                </section>
-            </div>
-
-            <div class="lg:col-span-2">
-                <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-100 sticky top-8">
-                    <h2 class="text-xl font-semibold text-gray-700 mb-4">🎞️ Previsualización del video</h2>
-                    
-                    <div id="canvas-wrapper" class="canvas-container w-full aspect-[16/9] transition-all duration-300">
-                        <canvas id="video-canvas" class="rounded-lg"></canvas>
-                        <div id="status-overlay" class="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center text-white text-lg font-medium rounded-lg">
-                            Cargá algunas imágenes y presioná "Generar previsualización"
-                        </div>
-                    </div>
-                    
-                    <div id="message-box" class="mt-4 p-3 bg-yellow-100 text-yellow-800 rounded-lg hidden"></div>
-                </div>
-            </div>
-
-        </main>
-        
-        <footer class="mt-10 text-center text-sm text-gray-400">
-            <p>Versión 2.2 RP (16/12/2025). Esta página es experimental y puede tener errores.</p>
-        </footer>
     </div>
 
-    <script type="module">
-        // Variables globales
-        let loadedMedia = []; // Solo contiene imágenes
-        let currentImageIndex = 0;
-        let previousImageIndex = 0;
-        let isPreviewing = false;
-        let isRecording = false;
-        let animationStartTime = 0;
-        let animationFrameId = null;
-        let mediaRecorder = null;
-        let recordedChunks = [];
-        let targetRecordingDuration = 0; 
-        const TRANSITION_DURATION = 0.5; 
-        let cumulativeDurations = [];
-        let recordingProgressInterval = null; 
-        
-        // Elementos del DOM
-        const dropArea = document.getElementById('drop-area');
-        const fileInput = document.getElementById('file-input');
-        const urlInput = document.getElementById('url-input');
-        const loadUrlBtn = document.getElementById('load-url-btn');
-        const imageList = document.getElementById('image-list');
-        const canvasWrapper = document.getElementById('canvas-wrapper');
-        const canvas = document.getElementById('video-canvas');
-        const ctx = canvas.getContext('2d');
-        const previewBtn = document.getElementById('preview-btn');
-        const exportBtn = document.getElementById('export-btn');
-        const statusOverlay = document.getElementById('status-overlay');
-        const messageBox = document.getElementById('message-box');
-        const durationRange = document.getElementById('slide-duration');
-        const zoomRange = document.getElementById('zoom-speed');
-        const effectType = document.getElementById('effect-type');
-        const loopCountSelect = document.getElementById('loop-count'); 
-        const clearAllBtn = document.getElementById('clear-all-btn'); 
-        
-        // Elementos de progreso
-        const exportProgress = document.getElementById('export-progress');
-        const progressBar = document.getElementById('progress-bar');
-        const progressPercent = document.getElementById('progress-percent');
-        
-        // Elementos y lógica del aviso de novedad
-        const newFeatureAlert = document.getElementById('new-feature-alert');
-        const closeAlertBtn = document.getElementById('close-alert-btn');
-        // Eliminado: const ALERT_DISMISSED_KEY = 'vs_alert_dismissed';
-
-
-        // Configuración inicial del Canvas
-        const VIDEO_FPS = 30; // 30 cuadros por segundo
-        const MAX_CANVAS_WIDTH = 1280; 
-        const MAX_CANVAS_HEIGHT = 720; 
-
-        // --- Utilidades de UI ---
-
-        /** Muestra un mensaje en el cuadro de mensajes. */
-        function showMessage(message, type = 'warning') {
-            const classes = {
-                'warning': 'bg-yellow-100 text-yellow-800',
-                'error': 'bg-red-100 text-red-800',
-                'success': 'bg-green-100 text-green-800'
-            };
-            messageBox.className = `mt-4 p-3 rounded-lg ${classes[type]}`;
-            messageBox.innerHTML = message;
-            messageBox.classList.remove('hidden');
-        }
-
-        /** Oculta el mensaje. */
-        function hideMessage() {
-            messageBox.classList.add('hidden');
-        }
-        
-        /** Formatea segundos a M:SS si > 60s, o S.S si < 60s. */
-        function formatDuration(seconds) {
-            if (seconds >= 60) {
-                const minutes = Math.floor(seconds / 60);
-                const remainingSeconds = Math.round(seconds % 60);
-                return `${minutes} minuto${minutes !== 1 ? 's' : ''} y ${remainingSeconds} segundo${remainingSeconds !== 1 ? 's' : ''}`;
-            } else {
-                return `${seconds.toFixed(1)} segundos`;
-            }
-        }
-
-
-        /** Actualiza el estado de los botones y el overlay. */
-        function updateUIState() {
-            const hasMedia = loadedMedia.length > 0; 
-            
-            previewBtn.disabled = !hasMedia || isRecording; 
-            exportBtn.disabled = !hasMedia || isPreviewing; 
-            clearAllBtn.disabled = !hasMedia; 
-            
-            if (loadedMedia.length === 0) {
-                statusOverlay.textContent = 'Cargá algunas imágenes y presioná "Generar previsualización"';
-                statusOverlay.classList.remove('hidden');
-                exportProgress.classList.add('hidden');
-            } else if (isPreviewing) {
-                statusOverlay.classList.add('hidden');
-                previewBtn.textContent = 'Detener previsualización';
-                exportBtn.disabled = true; 
-                exportProgress.classList.add('hidden');
-            } else if (isRecording) {
-                statusOverlay.textContent = '🔴 Grabando video...';
-                statusOverlay.classList.remove('hidden');
-                exportBtn.textContent = 'Detener grabación'; 
-                previewBtn.disabled = true; 
-                exportProgress.classList.remove('hidden'); // Mostrar barra de progreso
-            } else {
-                statusOverlay.classList.add('hidden');
-                previewBtn.textContent = 'Generar previsualización';
-                exportBtn.textContent = 'Exportar video';
-                exportProgress.classList.add('hidden'); // Ocultar barra de progreso
-            }
-        }
-
-        /** Dibuja la lista de imágenes cargadas en el DOM. */
-        function renderImageList() {
-            imageList.innerHTML = `<p class="text-sm text-gray-500 font-medium">Imágenes cargadas (${loadedMedia.length}):</p>`;
-            loadedMedia.forEach((media, index) => {
-                const name = media.element.src.split('/').pop() || 'Imagen cargada';
-
-                const item = document.createElement('div');
-                item.className = 'flex justify-between items-center p-2 bg-gray-50 rounded-lg text-sm';
-                item.innerHTML = `
-                    <span class="truncate pr-2 text-gray-700">${index + 1}. ${name} (${media.duration.toFixed(1)}s)</span>
-                    <button data-index="${index}" class="remove-img-btn text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-50">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
-                        </svg>
-                    </button>
-                `;
-                imageList.appendChild(item);
-            });
-
-            document.querySelectorAll('.remove-img-btn').forEach(button => {
-                button.addEventListener('click', (e) => {
-                    const index = parseInt(e.currentTarget.dataset.index);
-                    loadedMedia.splice(index, 1);
-                    renderImageList();
-                    updateUIState();
-                });
-            });
-            updateCanvasDimensions(); 
-        }
-
-        // Limpia todos los medios cargados
-        function clearAllImages() {
-            loadedMedia = [];
-            renderImageList();
-            updateUIState();
-            drawInitialPlaceholder(); // Redibuja el placeholder
-            stopPreview(); // Detiene cualquier previsualización activa
-        }
-
-        // --- Lógica de Carga de Medios ---
-
-        /** Carga una imagen dada su URL. */
-        function loadImage(url) {
-            return new Promise((resolve, reject) => {
-                const img = new Image();
-                img.crossOrigin = "anonymous"; 
-                
-                // La duración siempre se toma del slider para las imágenes
-                img.onload = () => resolve({ element: img, type: 'image', duration: parseFloat(durationRange.value) });
-                img.onerror = () => reject(new Error(`Error al cargar la imagen desde URL: ${url}`));
-                img.src = url;
-            });
-        }
-
-        /** Maneja la carga de archivos. */
-        async function handleFiles(files) {
-            hideMessage();
-            if (files.length === 0) return;
-
-            for (const file of files) {
-                // Solo procesar imágenes
-                if (file.type.startsWith('image/')) {
-                    const url = URL.createObjectURL(file);
-                    try {
-                        const media = await loadImage(url);
-                        loadedMedia.push(media);
-                        URL.revokeObjectURL(url); 
-                    } catch (error) {
-                        showMessage(`Error al cargar el archivo ${file.name}.`, 'error');
-                        console.error(error);
-                    }
-                }
-            }
-            renderImageList();
-            updateUIState();
-        }
-
-        /** Maneja la carga de URLs (solo imágenes). */
-        loadUrlBtn.addEventListener('click', async () => {
-            const urls = urlInput.value.split('\n').map(url => url.trim()).filter(url => url);
-            urlInput.value = '';
-            hideMessage();
-
-            for (const url of urls) {
-                try {
-                    const media = await loadImage(url);
-                    loadedMedia.push(media);
-                } catch (error) {
-                    showMessage(`No se pudo cargar la imagen desde: ${url}. Asegúrate de que la URL sea pública y permita CORS.`, 'error');
-                    console.error(error);
-                }
-            }
-            renderImageList();
-            updateUIState();
-        });
-
-        // Eventos de entrada de archivos
-        fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
-
-        // Eventos de Drag and Drop
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            dropArea.addEventListener(eventName, preventDefaults, false);
-            document.body.addEventListener(eventName, preventDefaults, false);
-        });
-
-        function preventDefaults(e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-
-        ['dragenter', 'dragover'].forEach(eventName => {
-            dropArea.addEventListener(eventName, () => dropArea.classList.add('dragover'), false);
-        });
-
-        ['dragleave', 'drop'].forEach(eventName => {
-            dropArea.addEventListener(eventName, () => dropArea.classList.remove('dragover'), false);
-        });
-
-        dropArea.addEventListener('drop', (e) => {
-            let dt = e.dataTransfer;
-            let files = dt.files;
-            handleFiles(files);
-        }, false);
-
-        // --- Lógica de Canvas y Rendering ---
-
-        /** Actualiza las dimensiones del canvas y del contenedor. */
-        function updateCanvasDimensions() {
-            const aspectRatio = document.querySelector('input[name="aspect-ratio"]:checked').value;
-            let width, height;
-
-            if (aspectRatio === '16:9') {
-                width = MAX_CANVAS_WIDTH;
-                height = (MAX_CANVAS_WIDTH * 9) / 16;
-                canvasWrapper.classList.remove('aspect-[9/16]');
-                canvasWrapper.classList.add('aspect-[16/9]');
-            } else { // 9:16
-                height = MAX_CANVAS_HEIGHT;
-                width = (MAX_CANVAS_HEIGHT * 9) / 16;
-                canvasWrapper.classList.remove('aspect-[16/9]');
-                canvasWrapper.classList.add('aspect-[9/16]');
-            }
-
-            canvas.width = width;
-            canvas.height = height;
-            canvas.style.width = '100%';
-            canvas.style.height = '100%';
-        }
-        
-        /** * Calcula las duraciones acumuladas y la duración total del ciclo. */
-        function calculateMediaTimings() {
-            cumulativeDurations = [];
-            let totalDuration = 0;
-            const slideDuration = parseFloat(durationRange.value);
-
-            loadedMedia.forEach(media => {
-                // Todos son imágenes y usan la duración del slider
-                media.duration = slideDuration; 
-                
-                totalDuration += slideDuration;
-                cumulativeDurations.push(totalDuration);
-            });
-            return totalDuration;
-        }
-
-        /** * Dibuja el contenido principal (ajuste "Contain") con zoom.
-         * @param {Image} mediaElement - El objeto Image a dibujar.
-         * @param {number} canvasW - Ancho del canvas.
-         * @param {number} canvasH - Alto del canvas.
-         * @param {number} currentZoomScale - El factor de zoom a aplicar.
-         */
-        function drawContentMedia(mediaElement, canvasW, canvasH, currentZoomScale = 1.0) {
-            // Obtener el tamaño de la imagen
-            const mediaW = mediaElement.width;
-            const mediaH = mediaElement.height;
-
-            // Factor de escala base (Contain)
-            const scale = Math.min(canvasW / mediaW, canvasH / mediaH);
-            const baseW = mediaW * scale;
-            const baseH = mediaH * scale;
-
-            // Aplicar la escala de zoom
-            const drawW = baseW * currentZoomScale;
-            const drawH = baseH * currentZoomScale;
-
-            // Posicionamiento Centrado
-            const drawX = (canvasW - drawW) / 2;
-            const drawY = (canvasH - drawH) / 2;
-            
-            ctx.drawImage(mediaElement, drawX, drawY, drawW, drawH);
-        }
-        
-        /** * Calcula el factor de zoom para un momento dado de una diapositiva.
-         * @param {number} time - El tiempo dentro de la diapositiva (0 a duration).
-         * @param {number} duration - Duración total de la diapositiva.
-         * @param {number} zoomPercent - Porcentaje de zoom (0 a 1).
-         * @returns {number} El factor de escala (e.g., 1.0 a 1.1).
-         */
-        function calculateZoomScale(time, duration, zoomPercent) {
-            if (effectType.value !== 'zoom') return 1.0; 
-            const t = Math.min(time / duration, 1.0);
-            return 1.0 + (zoomPercent * t);
-        }
-
-        /** Dibuja la imagen actual con el fondo difuminado y aplica el efecto de zoom.
-         * @param {number} slideTime - Tiempo transcurrido desde el inicio de la diapositiva en segundos (0 to duration).
-         * @param {number} slideDuration - Duración total de la diapositiva.
-         * @param {boolean} forceStatic - Si es true, ignora la animación.
-         */
-        function drawImage(slideTime, slideDuration, forceStatic = false) {
-            if (loadedMedia.length === 0) return;
-            const currentMedia = loadedMedia[currentImageIndex];
-            const mediaElement = currentMedia.element; 
-            
-            const canvasW = canvas.width;
-            const canvasH = canvas.height;
-            const zoomPercent = parseFloat(zoomRange.value) / 100;
-            
-            // 1. Limpiar el canvas
-            ctx.clearRect(0, 0, canvasW, canvasH);
-            
-            // 2. Dibujar Fondo Difuminado (Gaussian Blur)
-            const mediaW = mediaElement.width;
-            const mediaH = mediaElement.height;
-
-            const mediaRatio = mediaW / mediaH;
-            const canvasRatio = canvasW / canvasH;
-            
-            let bgW, bgH, bgX, bgY;
-            
-            const scaleFactor = 1.1; 
-            
-            if (mediaRatio < canvasRatio) { 
-                bgW = canvasW * scaleFactor;
-                bgH = bgW / mediaRatio;
-            } else { 
-                bgH = canvasH * scaleFactor;
-                bgW = mediaRatio * bgH;
-            }
-            
-            bgX = (canvasW - bgW) / 2;
-            bgY = (canvasH - bgH) / 2;
-
-            ctx.filter = 'blur(20px)';
-            ctx.globalAlpha = 0.8; 
-            ctx.drawImage(mediaElement, bgX, bgY, bgW, bgH);
-            ctx.filter = 'none';
-            ctx.globalAlpha = 1.0;
-
-            // 3. Dibujar el Contenido Principal
-            
-            let currentZoomScale = 1.0;
-            if (!forceStatic) {
-                currentZoomScale = calculateZoomScale(slideTime, slideDuration, zoomPercent); 
-            }
-            
-            drawContentMedia(mediaElement, canvasW, canvasH, currentZoomScale);
-        }
-
-        // --- Lógica de Animación y Control ---
-
-        /** Bucle principal de animación (Preview/Grabación). */
-        function animationLoop(timestamp) {
-            if (!animationStartTime) {
-                animationStartTime = timestamp;
-            }
-
-            const elapsedLoopTime = (timestamp - animationStartTime) / 1000;
-            const numMedia = loadedMedia.length; 
-            if (numMedia === 0) return;
-
-            const singleCycleDuration = calculateMediaTimings(); 
-            
-            if (singleCycleDuration === 0) return;
-
-            const loopCount = isRecording ? parseInt(loopCountSelect.value) : Infinity;
-            
-            if (isRecording && elapsedLoopTime >= targetRecordingDuration) {
-                stopRecording();
-                return;
-            }
-            
-            const timeInCycle = elapsedLoopTime % singleCycleDuration;
-
-            let newIndex = 0;
-            let slideStartTime = 0; 
-
-            for (let i = 0; i < numMedia; i++) {
-                if (timeInCycle < cumulativeDurations[i]) {
-                    newIndex = i;
-                    slideStartTime = i === 0 ? 0 : cumulativeDurations[i - 1];
-                    break;
-                }
-            }
-            
-            // Si el medio cambió (corte seco)
-            if (newIndex !== currentImageIndex) {
-                currentImageIndex = newIndex;
-            }
-            
-            const currentMedia = loadedMedia[currentImageIndex];
-            
-            const slideTime = timeInCycle - slideStartTime; 
-
-            // Dibuja el frame actual
-            drawImage(slideTime, currentMedia.duration);
-
-            if (isPreviewing || isRecording) {
-                animationFrameId = requestAnimationFrame(animationLoop);
-            }
-        }
-        
-        /** Inicia la previsualización. */
-        function startPreview() {
-            if (loadedMedia.length === 0) {
-                showMessage("Por favor, carga al menos una imagen.", 'error');
-                return;
-            }
-            if (isPreviewing) {
-                stopPreview();
-                return;
-            }
-            
-            updateCanvasDimensions();
-            calculateMediaTimings(); 
-            
-            currentImageIndex = 0;
-            animationStartTime = 0; 
-            isPreviewing = true;
-            updateUIState();
-            
-            animationFrameId = requestAnimationFrame(animationLoop);
-        }
-
-        /** Detiene la previsualización. */
-        function stopPreview() {
-            if (animationFrameId) {
-                cancelAnimationFrame(animationFrameId);
-            }
-            isPreviewing = false;
-            animationStartTime = 0;
-            
-            // Dibuja la primera imagen estáticamente
-            if (loadedMedia.length > 0) {
-                drawImage(0, loadedMedia[currentImageIndex].duration, true); 
-            }
-            
-            updateUIState();
-        }
-
-        /** Actualiza la barra de progreso de exportación. */
-        function updateProgress() {
-            if (!isRecording || !targetRecordingDuration || !animationStartTime) return;
-
-            const elapsedLoopTime = (performance.now() - animationStartTime) / 1000;
-            let percent = Math.min((elapsedLoopTime / targetRecordingDuration) * 100, 100);
-            
-            const roundedPercent = Math.floor(percent);
-            progressBar.style.width = `${roundedPercent}%`;
-            progressPercent.textContent = `${roundedPercent}%`;
-        }
-
-
-        /** Inicia la grabación del video. */
-        function startRecording() {
-            if (loadedMedia.length === 0) {
-                showMessage("Por favor, carga al menos una imagen para grabar.", 'error');
-                return;
-            }
-            if (isRecording) {
-                stopRecording();
-                return;
-            }
-            
-            // 1. Configuración de Duración
-            updateCanvasDimensions();
-            calculateMediaTimings();
-            
-            currentImageIndex = 0;
-            animationStartTime = 0;
-            
-            const loopCount = parseInt(loopCountSelect.value);
-            const singleCycleDuration = cumulativeDurations[cumulativeDurations.length - 1];
-            targetRecordingDuration = singleCycleDuration * loopCount;
-            
-            const formattedDuration = formatDuration(targetRecordingDuration);
-
-            isRecording = true;
-            recordedChunks = [];
-            updateUIState();
-            hideMessage();
-            
-            showMessage(`🔴 Grabando ${loopCount} loop(s). Duración total aproximada: ${formattedDuration}.
-            <strong>Mantener esta pestaña abierta y visible durante la grabación, de lo contrario la exportación fallará o será muy lenta.</strong>`, 'warning');
-            
-            // Inicializar barra de progreso
-            progressBar.style.width = '0%';
-            progressPercent.textContent = '0%';
-            recordingProgressInterval = setInterval(updateProgress, 100); // Iniciar actualización de progreso CADA 100ms
-
-            // 2. Obtener el stream del canvas
-            const stream = canvas.captureStream(VIDEO_FPS); 
-            
-            // Dibujar el primer frame antes de inicializar MediaRecorder
-            drawImage(0, loadedMedia[0].duration, true);
-
-            // 3. Inicializar MediaRecorder
-            try {
-                const options = { mimeType: 'video/webm; codecs=vp9' };
-                mediaRecorder = new MediaRecorder(stream, options);
-            } catch (e) {
-                showMessage(`Codec vp9 no compatible. Usando WebM/VP8 estándar. Error: ${e.message}`, 'warning');
-                mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
-            }
-
-            // 4. Manejar datos grabados
-            mediaRecorder.ondataavailable = (event) => {
-                if (event.data.size > 0) {
-                    recordedChunks.push(event.data);
-                }
-            };
-
-            // 5. Manejar el evento de parada (finalización de la grabación)
-            mediaRecorder.onstop = () => {
-                // Detener el intervalo de progreso antes de la finalización
-                clearInterval(recordingProgressInterval);
-                isRecording = false;
-                
-                updateUIState();
-                
-                // Mostrar progreso al 100% y mensaje de "Procesando..."
-                progressBar.style.width = '100%';
-                progressPercent.textContent = '100%';
-                showMessage("Procesando y descargando el archivo...", 'success');
-                
-                const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType });
-                const url = URL.createObjectURL(blob);
-                
-                const a = document.createElement('a');
-                a.style.display = 'none';
-                a.href = url;
-                const now = new Date().toISOString().replace(/[:.]/g, '-');
-                a.download = `videostar_insert_${now}.webm`;
-                
-                document.body.appendChild(a);
-                a.click();
-                
-                window.URL.revokeObjectURL(url);
-                showMessage("¡Video exportado con éxito! Revisá tus descargas.", 'success');
-            };
-
-            // 6. Iniciar la grabación
-            mediaRecorder.start(1000 / VIDEO_FPS); 
-            
-            // 7. Iniciar el bucle de animación para alimentar el canvas
-            animationFrameId = requestAnimationFrame(animationLoop);
-        }
-
-        /** Detiene la grabación del video. */
-        function stopRecording() {
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                cancelAnimationFrame(animationFrameId);
-                mediaRecorder.stop();
-            }
-            clearInterval(recordingProgressInterval);
-        }
-
-        // Dibuja una imagen de inicio para que el canvas no esté vacío.
-        function drawInitialPlaceholder() {
-            ctx.fillStyle = '#1f2937'; // gray-800
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = '#9ca3af'; // gray-400
-            ctx.font = '20px Inter, sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText('Videostar - Generador de Slideshow', canvas.width / 2, canvas.height / 2);
-        }
-
-        // --- Event Listeners Globales ---
-
-        // Botón de Previsualización
-        previewBtn.addEventListener('click', startPreview);
-        
-        // Botón de Exportación
-        exportBtn.addEventListener('click', () => {
-            if (isRecording) {
-                stopRecording();
-            } else {
-                startRecording();
-            }
-        });
-
-        // Botón de Limpiar Todo
-        clearAllBtn.addEventListener('click', clearAllImages); 
-
-        // Actualizar la duración de las imágenes cuando se cambia el slider
-        durationRange.addEventListener('input', () => {
-            document.getElementById('duration-value').textContent = durationRange.value;
-             // Forzar la actualización de la duración de las imágenes en el array de medios
-            loadedMedia.forEach(m => m.duration = parseFloat(durationRange.value));
-            renderImageList();
-        });
-
-        zoomRange.addEventListener('input', () => {
-            document.getElementById('zoom-value').textContent = zoomRange.value;
-        });
-        
-        // Controles de configuración
-        document.querySelectorAll('input[name="aspect-ratio"]').forEach(input => {
-            input.addEventListener('change', updateCanvasDimensions);
-        });
-
-        // Lógica del aviso de novedad (solo oculta, sin persistencia)
-        closeAlertBtn.addEventListener('click', () => {
-            newFeatureAlert.classList.add('hidden');
-        });
-
-        // Inicializar el placeholder y comprobar el aviso al cargar
-        window.addEventListener('load', () => {
-            updateCanvasDimensions();
-            drawInitialPlaceholder();
-            updateUIState();
-            
-            // El aviso siempre se muestra al cargar, ya que no hay persistencia.
-            newFeatureAlert.classList.remove('hidden');
-        });
-
-    </script>
 </body>
-
 </html>
